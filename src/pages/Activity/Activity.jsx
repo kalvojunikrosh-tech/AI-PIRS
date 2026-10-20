@@ -54,48 +54,60 @@ export default function Activity() {
 
       {/* Timeline Section */}
       <div className="timeline-container">
-        {Object.entries(groups).map(([groupTitle, items]) => (
-          <div key={groupTitle} className="timeline-date-group">
-            <div className="timeline-group-header">
-              <span className="timeline-group-pill">{groupTitle}</span>
-              <span className="timeline-group-line" />
+        {activityList.length === 0 ? (
+          <div style={{ padding: "48px 20px", textAlign: "center", background: "var(--card-bg)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)", margin: "20px 0" }}>
+            <div style={{ display: "inline-flex", padding: "12px", borderRadius: "50%", background: "rgba(37, 99, 235, 0.1)", color: "var(--color-primary, #2563EB)", marginBottom: "12px" }}>
+              <Clock size={28} />
             </div>
-
-            <div className="timeline-items-list">
-              {items.map(item => {
-                const Icon = ICON_MAP[item.icon] || FileText;
-                return (
-                  <div
-                    key={item.id}
-                    className="timeline-item-card"
-                    onClick={() => handleItemAction(item)}
-                  >
-                    <div
-                      className="timeline-icon-box"
-                      style={{ backgroundColor: `${item.color}15`, color: item.color }}
-                    >
-                      <Icon size={18} />
-                    </div>
-
-                    <div className="timeline-content">
-                      <div className="timeline-item-top">
-                        <span className="timeline-item-title">{item.title}</span>
-                        <span className="timeline-time-badge">{item.time || item.timestamp}</span>
-                      </div>
-                      <p className="timeline-item-desc">{item.description}</p>
-                    </div>
-
-                    {item.docId && (
-                      <div className="timeline-action-arrow">
-                        <ArrowRight size={15} />
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <h3 style={{ fontSize: "1.05rem", fontWeight: "600", marginBottom: "6px" }}>No activity recorded yet</h3>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", maxWidth: "340px", margin: "0 auto" }}>
+              Upload documents, inspect files in Document Viewer, or ask questions to see your personal activity history.
+            </p>
           </div>
-        ))}
+        ) : (
+          Object.entries(groups).map(([groupTitle, items]) => (
+            <div key={groupTitle} className="timeline-date-group">
+              <div className="timeline-group-header">
+                <span className="timeline-group-pill">{groupTitle}</span>
+                <span className="timeline-group-line" />
+              </div>
+
+              <div className="timeline-items-list">
+                {items.map(item => {
+                  const Icon = ICON_MAP[item.icon] || FileText;
+                  return (
+                    <div
+                      key={item.id}
+                      className="timeline-item-card"
+                      onClick={() => handleItemAction(item)}
+                    >
+                      <div
+                        className="timeline-icon-box"
+                        style={{ backgroundColor: `${item.color}15`, color: item.color }}
+                      >
+                        <Icon size={18} />
+                      </div>
+
+                      <div className="timeline-content">
+                        <div className="timeline-item-top">
+                          <span className="timeline-item-title">{item.title}</span>
+                          <span className="timeline-time-badge">{item.time || item.timestamp}</span>
+                        </div>
+                        <p className="timeline-item-desc">{item.description}</p>
+                      </div>
+
+                      {item.docId && (
+                        <div className="timeline-action-arrow">
+                          <ArrowRight size={15} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );

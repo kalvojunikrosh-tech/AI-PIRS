@@ -20,8 +20,30 @@ import {
 import "./Settings.css";
 
 export default function Settings() {
-  const { currentUser, setCurrentUser, theme, toggleTheme, addToast } = useApp();
+  const { currentUser, setCurrentUser, theme, toggleTheme, addToast, documents } = useApp();
   const [activeTab, setActiveTab] = useState("profile");
+
+  const totalBytes = (documents || []).reduce((acc, d) => acc + (d.sizeBytes || 0), 0);
+  const pdfBytes = (documents || [])
+    .filter(d => (d.type || "").toLowerCase().includes("pdf"))
+    .reduce((acc, d) => acc + (d.sizeBytes || 0), 0);
+  const imgBytes = (documents || [])
+    .filter(d => ["jpg", "jpeg", "png", "webp"].includes((d.type || "").toLowerCase()))
+    .reduce((acc, d) => acc + (d.sizeBytes || 0), 0);
+  const otherBytes = Math.max(0, totalBytes - pdfBytes - imgBytes);
+
+  const formatSize = (bytes) => {
+    if (!bytes || bytes === 0) return "0 KB";
+    const k = 1024;
+    const sizes = ["Bytes", "KB", "MB", "GB"];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+  };
+
+  const totalQuota = 15 * 1024 * 1024 * 1024; // 15 GB local/vault allocation
+  const pdfPct = totalBytes > 0 ? Math.max(2, Math.min(100, (pdfBytes / totalQuota) * 100)) : 0;
+  const imgPct = totalBytes > 0 ? Math.max(1, Math.min(100, (imgBytes / totalQuota) * 100)) : 0;
+  const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent || navigator.platform || "");
 
   // Form states
   const [name, setName] = useState(currentUser.name);
@@ -322,25 +344,10 @@ export default function Settings() {
               <div className="session-item">
                 <Laptop size={20} color="var(--color-orange)" />
                 <div className="session-info">
-                  <div className="session-device">MacBook Pro (16-inch, 2024) — Current Session</div>
-                  <div className="session-location">Hyderabad, India • Chrome 130.0 • IP: 49.205.12.82</div>
+                  <div className="session-device">{isMac ? "MacBook Pro / macOS" : "Personal Workstation"} — Current Session</div>
+                  <div className="session-location">Local Browser Sandbox • Encrypted Storage Active</div>
                 </div>
                 <span className="badge badge-indexed">Active Now</span>
-              </div>
-
-              <div className="session-item">
-                <Smartphone size={20} color="var(--text-muted)" />
-                <div className="session-info">
-                  <div className="session-device">iPhone 15 Pro</div>
-                  <div className="session-location">Hyderabad, India • Safari Mobile • Active 2 days ago</div>
-                </div>
-                <button
-                  type="button"
-                  className="btn-ghost btn-sm"
-                  onClick={() => addToast("Session revoked.", "info")}
-                >
-                  Revoke
-                </button>
               </div>
             </div>
           </div>
@@ -354,17 +361,29 @@ export default function Settings() {
 
             <div className="storage-meter-box">
               <div className="storage-meter-top">
-                <span className="storage-meter-bold">2.4 GB used</span>
-                <span className="storage-meter-total">of 15.0 GB total</span>
+                <span className="storage-meter-bold">{formatSize(totalBytes)} used</span>
+                <span className="storage-meter-total">of 15.0 GB total allocation</span>
               </div>
               <div className="storage-bar-track">
-                <div className="storage-bar-seg pdf" style={{ width: "12%" }} title="PDF Documents (1.8 GB)" />
-                <div className="storage-bar-seg img" style={{ width: "4%" }} title="Scans & Images (0.6 GB)" />
+                {pdfPct > 0 && (
+                  <div
+                    className="storage-bar-seg pdf"
+                    style={{ width: `${pdfPct}%` }}
+                    title={`PDF Documents (${formatSize(pdfBytes)})`}
+                  />
+                )}
+                {imgPct > 0 && (
+                  <div
+                    className="storage-bar-seg img"
+                    style={{ width: `${imgPct}%` }}
+                    title={`Scans & Images (${formatSize(imgBytes)})`}
+                  />
+                )}
               </div>
               <div className="storage-legend">
-                <div className="legend-item"><span className="dot pdf" /> PDF Documents (1.8 GB)</div>
-                <div className="legend-item"><span className="dot img" /> Images & Scans (0.6 GB)</div>
-                <div className="legend-item"><span className="dot free" /> Free Space (12.6 GB)</div>
+                <div className="legend-item"><span className="dot pdf" /> PDF Documents ({formatSize(pdfBytes)})</div>
+                <div className="legend-item"><span className="dot img" /> Images & Scans ({formatSize(imgBytes)})</div>
+                <div className="legend-item"><span className="dot free" /> Free Space ({formatSize(totalQuota - totalBytes)})</div>
               </div>
             </div>
           </div>

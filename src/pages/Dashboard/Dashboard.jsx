@@ -16,8 +16,7 @@ import {
   Award,
   User,
   FolderKanban,
-  Clock,
-  ShieldAlert
+  Clock
 } from "lucide-react";
 import "./Dashboard.css";
 
@@ -44,11 +43,15 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const suggestionChips = [
-    "Where is my Aadhaar number?",
+    "Where is my Aadhaar card?",
+    "What is my Aadhaar number?",
+    "What is my driving licence number?",
+    "When does my driving licence expire?",
+    "Which file contains my PAN card?",
     "When does my passport expire?",
+    "Find my address.",
     "Find the invoice from March",
-    "What was my semester 3 percentage?",
-    "Which certificate mentions Python?"
+    "Show all my identity documents."
   ];
 
   const handleSearchSubmit = (e) => {
@@ -143,9 +146,9 @@ export default function Dashboard() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Documents</div>
-            <div className="stat-value">{documents.length + 114}</div>
+            <div className="stat-value">{documents.length}</div>
           </div>
-          <div className="stat-trend">+4 this week</div>
+          <div className="stat-trend">{documents.length > 0 ? `${documents.length} in vault` : "Vault empty"}</div>
         </div>
 
         <div className="stat-card">
@@ -154,9 +157,16 @@ export default function Dashboard() {
           </div>
           <div className="stat-content">
             <div className="stat-label">Storage Used</div>
-            <div className="stat-value">2.4 GB</div>
+            <div className="stat-value">
+              {(() => {
+                const bytes = documents.reduce((acc, d) => acc + (d.sizeBytes || 0), 0);
+                if (bytes === 0) return "0 KB";
+                if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+                return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+              })()}
+            </div>
           </div>
-          <div className="stat-sub">of 15 GB quota</div>
+          <div className="stat-sub">of local sandbox</div>
         </div>
 
         <div className="stat-card">
@@ -165,9 +175,9 @@ export default function Dashboard() {
           </div>
           <div className="stat-content">
             <div className="stat-label">AI Indexed</div>
-            <div className="stat-value">{documents.length + 108}</div>
+            <div className="stat-value">{documents.filter(d => d.isIndexed).length}</div>
           </div>
-          <div className="stat-badge">100% Ready</div>
+          <div className="stat-badge">{documents.length > 0 ? "100% Ready" : "Ready"}</div>
         </div>
 
         <div className="stat-card">
@@ -201,47 +211,66 @@ export default function Dashboard() {
           </div>
 
           <div className="recent-docs-list">
-            {recentDocs.map(doc => (
-              <div key={doc.id} className="recent-doc-card">
-                <div className="doc-icon-wrap">
-                  <FileText size={20} color="var(--color-orange)" />
+            {recentDocs.length === 0 ? (
+              <div style={{ padding: "36px 16px", textAlign: "center", background: "var(--card-bg)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)" }}>
+                <div style={{ display: "inline-flex", padding: "10px", borderRadius: "50%", background: "rgba(243, 106, 33, 0.1)", color: "var(--color-orange)", marginBottom: "10px" }}>
+                  <FileText size={24} />
                 </div>
+                <div style={{ fontWeight: "600", fontSize: "0.95rem", marginBottom: "4px" }}>No documents in vault</div>
+                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)", marginBottom: "14px" }}>
+                  Upload your PDFs, identity records, or notes to get started.
+                </p>
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setIsUploadModalOpen(true)}
+                >
+                  <UploadCloud size={14} />
+                  <span>Upload Document</span>
+                </button>
+              </div>
+            ) : (
+              recentDocs.map(doc => (
+                <div key={doc.id} className="recent-doc-card">
+                  <div className="doc-icon-wrap">
+                    <FileText size={20} color="var(--color-orange)" />
+                  </div>
 
-                <div className="doc-info-block" onClick={() => openDocumentViewer(doc.id)}>
-                  <div className="doc-filename">{doc.name}</div>
-                  <div className="doc-meta-tags">
-                    <span className="doc-ext-tag">{doc.extension}</span>
-                    <span>{doc.size}</span>
-                    <span>•</span>
-                    <span>Modified {new Date(doc.modifiedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                  <div className="doc-info-block" onClick={() => openDocumentViewer(doc.id)}>
+                    <div className="doc-filename">{doc.name}</div>
+                    <div className="doc-meta-tags">
+                      <span className="doc-ext-tag">{doc.extension}</span>
+                      <span>{doc.size}</span>
+                      <span>•</span>
+                      <span>Modified {new Date(doc.modifiedAt).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                    </div>
+                  </div>
+
+                  <div className="doc-badge-status">
+                    <span className="badge badge-indexed">
+                      <CheckCircle2 size={12} /> Indexed
+                    </span>
+                  </div>
+
+                  <div className="doc-actions-wrap">
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => openDocumentViewer(doc.id)}
+                      title="Open in Document Viewer"
+                    >
+                      Open
+                    </button>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      onClick={() => askAI(`Tell me about ${doc.name}`, doc)}
+                      title="Ask AI about this document"
+                    >
+                      <Sparkles size={14} color="var(--color-orange)" />
+                      <span>Ask AI</span>
+                    </button>
                   </div>
                 </div>
-
-                <div className="doc-badge-status">
-                  <span className="badge badge-indexed">
-                    <CheckCircle2 size={12} /> Indexed
-                  </span>
-                </div>
-
-                <div className="doc-actions-wrap">
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => openDocumentViewer(doc.id)}
-                    title="Open in Document Viewer"
-                  >
-                    Open
-                  </button>
-                  <button
-                    className="btn btn-ghost btn-sm"
-                    onClick={() => askAI(`Tell me about ${doc.name}`, doc)}
-                    title="Ask AI about this document"
-                  >
-                    <Sparkles size={14} color="var(--color-orange)" />
-                    <span>Ask AI</span>
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

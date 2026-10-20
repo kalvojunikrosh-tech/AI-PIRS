@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useApp } from "../../context/AppContext";
-import { performGlobalSearch } from "../../data/mockSearchResults";
+import { performGlobalSearch } from "../../services/searchService";
 import {
   Search,
   Sparkles,

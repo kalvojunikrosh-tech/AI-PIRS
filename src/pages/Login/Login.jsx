@@ -13,16 +13,16 @@ import {
 import "./Login.css";
 
 export default function Login() {
-  const { setCurrentPage, setIsAuthenticated, addToast } = useApp();
-  const [email, setEmail] = useState("arun.k@domain.dev");
-  const [password, setPassword] = useState("••••••••••••");
+  const { setCurrentPage, setIsAuthenticated, addToast, currentUser } = useApp();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
 
   const handleSignIn = (e) => {
     e.preventDefault();
     setIsAuthenticated(true);
     setCurrentPage("overview");
-    addToast("Welcome back, Arun!", "success");
+    addToast(`Welcome back, ${currentUser.name.split(" ")[0]}!`, "success");
   };
 
   const handleGoogleSignIn = () => {

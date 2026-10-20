@@ -22,6 +22,7 @@ export default function AskAI() {
   const {
     conversations,
     setConversations,
+    clearAllConversations,
     askAI,
     openDocumentViewer,
     documents,
@@ -35,12 +36,15 @@ export default function AskAI() {
   const inputRef = useRef(null);
 
   const samplePrompts = [
-    "What internships have I completed?",
-    "Where is my Aadhaar number?",
+    "Where is my Aadhaar card?",
+    "What is my Aadhaar number?",
     "When does my passport expire?",
+    "What is my driving licence number?",
+    "When does my driving licence expire?",
+    "Which file contains my PAN card?",
     "Find the invoice from March",
-    "What was my semester 3 percentage?",
-    "Which certificate mentions Python?"
+    "Find my address.",
+    "Show all my identity documents."
   ];
 
   const handleSend = (e) => {
@@ -99,10 +103,7 @@ export default function AskAI() {
 
           <button
             className="btn btn-secondary btn-sm"
-            onClick={() => {
-              setConversations([]);
-              addToast("Conversation cleared.", "info");
-            }}
+            onClick={clearAllConversations}
             title="Clear all conversation history"
           >
             <RotateCcw size={14} />

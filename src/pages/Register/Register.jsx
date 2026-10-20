@@ -13,21 +13,25 @@ import "../Login/Login.css";
 
 export default function Register() {
   const { setCurrentPage, setIsAuthenticated, setCurrentUser, addToast } = useApp();
-  const [name, setName] = useState("Arun Kumar");
-  const [email, setEmail] = useState("arun.k@domain.dev");
-  const [password, setPassword] = useState("password123");
-  const [confirmPassword, setConfirmPassword] = useState("password123");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const handleRegister = (e) => {
     e.preventDefault();
+    if (!name.trim() || !email.trim()) {
+      addToast("Please fill in your name and email.", "error");
+      return;
+    }
     if (password !== confirmPassword) {
       addToast("Passwords do not match.", "error");
       return;
     }
     setCurrentUser(prev => ({
       ...prev,
-      name: name || "Arun Kumar",
-      email: email || "arun.k@domain.dev"
+      name: name.trim(),
+      email: email.trim()
     }));
     setIsAuthenticated(true);
     setCurrentPage("overview");
@@ -110,7 +114,7 @@ export default function Register() {
                   type="text"
                   required
                   className="form-input"
-                  placeholder="Arun Kumar"
+                  placeholder="Jane Doe"
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />

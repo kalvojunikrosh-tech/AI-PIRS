@@ -8,13 +8,10 @@ import {
   FileText,
   CheckCircle2,
   MoreVertical,
-  Filter,
   ArrowUpDown,
-  ExternalLink,
   Sparkles,
   Trash2,
   Eye,
-  FileSpreadsheet,
   FileImage,
   Folder
 } from "lucide-react";

@@ -8,36 +8,49 @@ import {
   X,
   FileCheck,
   AlertCircle,
-  Folder
+  Folder,
+  RefreshCw
 } from "lucide-react";
+import { extractDocumentContent } from "../../services/documentExtractor";
+import { analyzeDocument } from "../../services/entityExtractor";
 import "./UploadModal.css";
 
 const STAGES = [
-  { id: "uploading", label: "Uploaded", desc: "Transferring file bytes to encrypted storage" },
+  { id: "uploading", label: "Uploaded", desc: "Reading file bytes into local sandbox" },
   { id: "reading", label: "Reading document", desc: "Parsing document structure & layers" },
-  { id: "extracting", label: "Extracting text", desc: "Running neural OCR & text extraction" },
-  { id: "analyzing", label: "Analyzing content", desc: "Detecting entities, dates & semantic relationships" },
-  { id: "indexing", label: "Generating AI index", desc: "Computing vector embeddings for instant retrieval" }
+  { id: "extracting", label: "Extracting text", desc: "Running document parsing & OCR extraction" },
+  { id: "analyzing", label: "Analyzing content", desc: "Detecting identity numbers, dates & entities" },
+  { id: "indexing", label: "Generating AI index", desc: "Building local search index for instant retrieval" }
 ];
 
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 KB";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + " " + sizes[i];
+}
+
 export default function UploadModal() {
-  const { isUploadModalOpen, setIsUploadModalOpen, handleUploadComplete, collections } = useApp();
+  const { isUploadModalOpen, setIsUploadModalOpen, handleUploadComplete, collections, addToast } = useApp();
 
   const [dragActive, setDragActive] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState([]);
+  const [selectedFileItem, setSelectedFileItem] = useState(null); // { file, name, size, sizeBytes, type }
   const [targetCollection, setTargetCollection] = useState("Academic");
-  const [uploadState, setUploadState] = useState("idle"); // idle, processing, complete
+  const [uploadState, setUploadState] = useState("idle"); // idle, processing, complete, error
   const [progress, setProgress] = useState(0);
   const [currentStageIdx, setCurrentStageIdx] = useState(0);
+  const [errorMessage, setErrorMessage] = useState("");
 
   const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!isUploadModalOpen) {
-      setSelectedFiles([]);
+      setSelectedFileItem(null);
       setUploadState("idle");
       setProgress(0);
       setCurrentStageIdx(0);
+      setErrorMessage("");
     }
   }, [isUploadModalOpen]);
 
@@ -58,57 +71,89 @@ export default function UploadModal() {
     e.stopPropagation();
     setDragActive(false);
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFiles(Array.from(e.dataTransfer.files));
+      processSelectedFile(e.dataTransfer.files[0]);
     }
   };
 
   const handleFileInput = (e) => {
     if (e.target.files && e.target.files[0]) {
-      handleFiles(Array.from(e.target.files));
+      processSelectedFile(e.target.files[0]);
     }
   };
 
-  const handleFiles = (files) => {
-    const valid = files.map(f => ({
-      name: f.name,
-      size: `${Math.round(f.size / 1024) || 320} KB`,
-      type: f.name.split('.').pop()?.toUpperCase() || 'PDF'
-    }));
-    setSelectedFiles(valid);
+  const processSelectedFile = (file) => {
+    const ext = file.name.split(".").pop()?.toUpperCase() || "FILE";
+    setSelectedFileItem({
+      file,
+      name: file.name,
+      size: formatBytes(file.size),
+      sizeBytes: file.size,
+      type: ext
+    });
+    setUploadState("idle");
+    setErrorMessage("");
   };
 
-  const startSimulation = () => {
-    if (selectedFiles.length === 0) return;
+  const startExtractionAndIngestion = async () => {
+    if (!selectedFileItem || !selectedFileItem.file) return;
+
+    const file = selectedFileItem.file;
     setUploadState("processing");
     setProgress(15);
-    setCurrentStageIdx(0);
+    setCurrentStageIdx(0); // Uploaded
+    setErrorMessage("");
 
-    // Multi-step realistic progress simulator
-    const stepInterval = setInterval(() => {
-      setProgress(prev => {
-        if (prev >= 100) {
-          clearInterval(stepInterval);
-          setUploadState("complete");
-          setTimeout(() => {
-            handleUploadComplete({
-              name: selectedFiles[0].name,
-              size: selectedFiles[0].size,
-              collection: targetCollection
-            });
-          }, 900);
-          return 100;
+    try {
+      // Stage 1 & 2: Reading & Extracting
+      setCurrentStageIdx(1); // Reading
+      setProgress(30);
+
+      const extraction = await extractDocumentContent(file, (stageName, pct) => {
+        if (stageName === "extracting") {
+          setCurrentStageIdx(2);
+          setProgress(Math.max(45, pct));
         }
-
-        const next = prev + 18;
-        if (next >= 85) setCurrentStageIdx(4);
-        else if (next >= 65) setCurrentStageIdx(3);
-        else if (next >= 45) setCurrentStageIdx(2);
-        else if (next >= 25) setCurrentStageIdx(1);
-        else setCurrentStageIdx(0);
-
-        return Math.min(next, 100);
       });
-    }, 450);
+
+      // Stage 3: Analyzing content & detecting entities
+      setCurrentStageIdx(3);
+      setProgress(80);
+      await new Promise(r => setTimeout(r, 200));
+
+      const analysis = analyzeDocument(file.name, extraction.extractedText);
+
+      // Stage 4: Indexing
+      setCurrentStageIdx(4);
+      setProgress(100);
+      await new Promise(r => setTimeout(r, 250));
+
+      setUploadState("complete");
+
+      // Complete upload and persist
+      setTimeout(() => {
+        handleUploadComplete({
+          name: file.name,
+          type: file.type.startsWith("image/") ? "image" : file.name.endsWith(".docx") ? "doc" : "pdf",
+          extension: file.name.split(".").pop().toUpperCase(),
+          size: selectedFileItem.size,
+          sizeBytes: selectedFileItem.sizeBytes,
+          pages: extraction.pages || 1,
+          extractedText: extraction.extractedText,
+          pagesText: extraction.pagesText,
+          collection: targetCollection || analysis.collection,
+          summary: analysis.summary,
+          keywords: analysis.keywords,
+          detectedEntities: analysis.detectedEntities,
+          visualType: analysis.visualType
+        });
+      }, 700);
+
+    } catch (err) {
+      console.error("Document ingestion failed:", err);
+      setUploadState("error");
+      setErrorMessage(err.message || "Failed to parse document text. Please verify file integrity.");
+      addToast(err.message || "Extraction failed", "error");
+    }
   };
 
   return (
@@ -125,7 +170,7 @@ export default function UploadModal() {
           <div>
             <h3 className="upload-modal-title">Upload Documents</h3>
             <p className="upload-modal-sub">
-              Upload files to OCR scan, extract entities, and build neural search embeddings.
+              Upload real documents to extract text, detect entities, and build local search indexes.
             </p>
           </div>
           <button
@@ -153,10 +198,9 @@ export default function UploadModal() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  multiple
                   style={{ display: "none" }}
                   onChange={handleFileInput}
-                  accept=".pdf,.png,.jpg,.jpeg,.docx"
+                  accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.webp"
                 />
                 <div className="dropzone-icon-circle">
                   <UploadCloud size={28} />
@@ -167,44 +211,28 @@ export default function UploadModal() {
                 </div>
                 <div className="dropzone-supported-tags">
                   <span className="file-tag">PDF</span>
+                  <span className="file-tag">DOCX</span>
+                  <span className="file-tag">TXT</span>
+                  <span className="file-tag">CSV</span>
+                  <span className="file-tag">JSON</span>
                   <span className="file-tag">PNG</span>
                   <span className="file-tag">JPG</span>
-                  <span className="file-tag">JPEG</span>
-                  <span className="file-tag">DOCX</span>
                 </div>
               </div>
 
-              {/* Sample Quick Demo Files button if user doesn't have a file ready */}
-              <div className="quick-demo-files">
-                <span className="quick-label">Or test with mock document:</span>
-                <button
-                  type="button"
-                  className="quick-file-chip"
-                  onClick={() => setSelectedFiles([{ name: "Stanford_AI_Ethics_Certificate.pdf", size: "295 KB", type: "PDF" }])}
-                >
-                  <FileText size={14} /> Stanford_AI_Ethics_Certificate.pdf
-                </button>
-                <button
-                  type="button"
-                  className="quick-file-chip"
-                  onClick={() => setSelectedFiles([{ name: "Q3_Investment_Statement.pdf", size: "410 KB", type: "PDF" }])}
-                >
-                  <FileText size={14} /> Q3_Investment_Statement.pdf
-                </button>
-              </div>
-
-              {/* Selected Files Preview & Collection Target */}
-              {selectedFiles.length > 0 && (
-                <div className="selected-files-section">
+              {/* Selected file preview */}
+              {selectedFileItem && (
+                <div className="selected-files-list">
                   <div className="selected-file-card">
                     <FileText size={20} color="var(--color-orange)" />
                     <div className="selected-file-info">
-                      <div className="selected-file-name">{selectedFiles[0].name}</div>
-                      <div className="selected-file-meta">{selectedFiles[0].size} • {selectedFiles[0].type}</div>
+                      <div className="selected-file-name">{selectedFileItem.name}</div>
+                      <div className="selected-file-meta">{selectedFileItem.size} • {selectedFileItem.type}</div>
                     </div>
                     <button
                       className="selected-file-remove"
-                      onClick={() => setSelectedFiles([])}
+                      onClick={() => setSelectedFileItem(null)}
+                      title="Remove file"
                     >
                       <X size={16} />
                     </button>
@@ -235,8 +263,8 @@ export default function UploadModal() {
               <div className="processing-doc-banner">
                 <FileText size={22} color="var(--color-orange)" />
                 <div style={{ flex: 1 }}>
-                  <div className="processing-doc-name">{selectedFiles[0]?.name || "Document.pdf"}</div>
-                  <div className="processing-doc-size">{selectedFiles[0]?.size || "320 KB"} • Target: {targetCollection}</div>
+                  <div className="processing-doc-name">{selectedFileItem?.name || "Document"}</div>
+                  <div className="processing-doc-size">{selectedFileItem?.size} • Target: {targetCollection}</div>
                 </div>
                 <div className="processing-percent-badge">{progress}%</div>
               </div>
@@ -251,7 +279,7 @@ export default function UploadModal() {
 
               {/* Step Checklist */}
               <div className="processing-checklist">
-                <div className="checklist-heading">AI INGESTION PIPELINE</div>
+                <div className="checklist-heading">GENUINE INGESTION PIPELINE</div>
                 {STAGES.map((stg, idx) => {
                   const isDone = idx < currentStageIdx || uploadState === "complete";
                   const isCurrent = idx === currentStageIdx && uploadState === "processing";
@@ -282,9 +310,33 @@ export default function UploadModal() {
               {uploadState === "complete" && (
                 <div className="ready-banner">
                   <FileCheck size={20} color="var(--color-success)" />
-                  <span>Document indexed & ready for natural language retrieval!</span>
+                  <span>Document text extracted & indexed into retrieval store!</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Error State */}
+          {uploadState === "error" && (
+            <div className="upload-error-view" style={{ padding: "20px", textAlign: "center" }}>
+              <div style={{ display: "inline-flex", padding: "12px", borderRadius: "50%", background: "#FEE2E2", color: "#EF4444", marginBottom: "12px" }}>
+                <AlertCircle size={32} />
+              </div>
+              <h4 style={{ fontSize: "1.1rem", fontWeight: "600", marginBottom: "8px", color: "var(--text-primary)" }}>Extraction Failed</h4>
+              <p style={{ color: "#EF4444", fontSize: "0.9rem", marginBottom: "16px", background: "#FEF2F2", padding: "10px", borderRadius: "8px" }}>
+                {errorMessage}
+              </p>
+              <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "20px" }}>
+                Please check if the file is encrypted, password-protected, empty, or an unsupported file format.
+              </p>
+              <div style={{ display: "flex", gap: "10px", justifyContent: "center" }}>
+                <button className="btn btn-secondary" onClick={() => setUploadState("idle")}>
+                  Select Another File
+                </button>
+                <button className="btn btn-primary" onClick={startExtractionAndIngestion}>
+                  <RefreshCw size={14} /> Retry Extraction
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -300,11 +352,11 @@ export default function UploadModal() {
             </button>
             <button
               className="btn btn-primary"
-              disabled={selectedFiles.length === 0}
-              onClick={startSimulation}
+              disabled={!selectedFileItem}
+              onClick={startExtractionAndIngestion}
             >
               <UploadCloud size={16} />
-              <span>Start Ingestion</span>
+              <span>Extract & Index</span>
             </button>
           </div>
         )}

@@ -12,11 +12,7 @@ import {
   ShieldCheck,
   Archive,
   ArrowRight,
-  MoreVertical,
-  Edit2,
-  Trash2,
-  X,
-  FileText
+  X
 } from "lucide-react";
 import "./Collections.css";
 
@@ -37,8 +33,7 @@ export default function Collections() {
     collections,
     createCollection,
     setCurrentPage,
-    setSelectedCollectionFilter,
-    addToast
+    setSelectedCollectionFilter
   } = useApp();
 
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -90,43 +85,58 @@ export default function Collections() {
       </div>
 
       {/* Collections Grid */}
-      <div className="collections-cards-grid">
-        {collections.map(col => {
-          const Icon = ICON_MAP[col.icon] || Folder;
-          return (
-            <div
-              key={col.id}
-              className="collection-card"
-              onClick={() => handleOpenCollection(col.name)}
-            >
-              <div className="col-card-header">
-                <div
-                  className="col-card-icon"
-                  style={{ backgroundColor: `${col.color}15`, color: col.color }}
-                >
-                  <Icon size={24} />
+      {collections.length === 0 ? (
+        <div style={{ padding: "48px 20px", textAlign: "center", background: "var(--card-bg)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)", margin: "20px 0" }}>
+          <div style={{ display: "inline-flex", padding: "12px", borderRadius: "50%", background: "rgba(243, 106, 33, 0.1)", color: "var(--color-orange)", marginBottom: "12px" }}>
+            <Folder size={28} />
+          </div>
+          <h3 style={{ fontSize: "1.05rem", fontWeight: "600", marginBottom: "6px" }}>No collections created yet</h3>
+          <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", maxWidth: "340px", margin: "0 auto 16px" }}>
+            Create folders and collections to categorize your academic certificates, identity documents, and invoices.
+          </p>
+          <button className="btn btn-primary btn-sm" onClick={() => setIsModalOpen(true)}>
+            <FolderPlus size={14} /> Create First Collection
+          </button>
+        </div>
+      ) : (
+        <div className="collections-cards-grid">
+          {collections.map(col => {
+            const Icon = ICON_MAP[col.icon] || Folder;
+            return (
+              <div
+                key={col.id}
+                className="collection-card"
+                onClick={() => handleOpenCollection(col.name)}
+              >
+                <div className="col-card-header">
+                  <div
+                    className="col-card-icon"
+                    style={{ backgroundColor: `${col.color}15`, color: col.color }}
+                  >
+                    <Icon size={24} />
+                  </div>
+                  <span className="col-doc-counter">
+                    {col.count} documents
+                  </span>
                 </div>
-                <span className="col-doc-counter">
-                  {col.count} documents
-                </span>
-              </div>
 
-              <div className="col-card-body">
-                <h3 className="col-name">{col.name}</h3>
-                <p className="col-desc">{col.description}</p>
-              </div>
+                <div className="col-card-body">
+                  <h3 className="col-name">{col.name}</h3>
+                  <p className="col-desc">{col.description}</p>
+                </div>
 
-              <div className="col-card-footer">
-                <span className="col-updated-tag">Updated {col.updatedAt}</span>
-                <span className="col-explore-link">
-                  <span>Explore</span>
-                  <ArrowRight size={14} />
-                </span>
+                <div className="col-card-footer">
+                  <span className="col-updated-tag">Updated {col.updatedAt}</span>
+                  <span className="col-explore-link">
+                    <span>Explore</span>
+                    <ArrowRight size={14} />
+                  </span>
+                </div>
               </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Create Collection Modal */}
       {isModalOpen && (

@@ -7,18 +7,10 @@ import {
   CheckCircle2,
   ZoomIn,
   ZoomOut,
-  Maximize2,
   Download,
   Copy,
-  Tag,
-  Calendar,
-  Layers,
-  HardDrive,
-  Info,
-  Shield,
-  Eye,
   Check,
-  Share2
+  Info
 } from "lucide-react";
 import "./DocumentViewer.css";
 
@@ -28,36 +20,51 @@ export default function DocumentViewer() {
   const [zoomLevel, setZoomLevel] = useState(100);
   const [copiedText, setCopiedText] = useState(false);
 
-  const doc = selectedDocument || {
-    id: "doc-2",
-    name: "BTech_Certificate.pdf",
-    type: "pdf",
-    extension: "PDF",
-    size: "320 KB",
-    uploadedAt: "2026-09-15T11:20:00Z",
-    modifiedAt: "2026-09-15T11:20:00Z",
-    isIndexed: true,
-    pages: 1,
-    collection: "Certificates",
-    summary: "Official Degree Certificate conferring Bachelor of Technology in Computer Science & Engineering with First Class with Distinction.",
-    keywords: ["Bachelor of Technology", "Computer Science", "Distinction", "CGPA 9.18"],
-    detectedEntities: [
-      { type: "PERSON", label: "Recipient", value: "Arun Kumar" },
-      { type: "ID", label: "Roll Number", value: "21BCE10482" },
-      { type: "DEGREE", label: "Degree", value: "B.Tech Computer Science & Engineering" }
-    ],
-    extractedText: "JAWAHARLAL NEHRU TECHNOLOGICAL UNIVERSITY..."
-  };
+  if (!selectedDocument) {
+    return (
+      <div className="viewer-page" style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "calc(100vh - 120px)" }}>
+        <div style={{ textAlign: "center", padding: "48px 32px", background: "var(--card-bg)", borderRadius: "var(--radius-lg)", border: "1px dashed var(--border-color)", maxWidth: "440px" }}>
+          <div style={{ display: "inline-flex", padding: "16px", borderRadius: "50%", background: "rgba(243, 106, 33, 0.1)", color: "var(--color-orange)", marginBottom: "16px" }}>
+            <FileText size={36} />
+          </div>
+          <h3 style={{ fontSize: "1.2rem", fontWeight: "600", marginBottom: "8px" }}>No Document Selected</h3>
+          <p style={{ color: "var(--text-muted)", fontSize: "0.9rem", lineHeight: "1.5", marginBottom: "20px" }}>
+            Select an uploaded document from your library or upload a new file to view extracted text, page layers, and detected entities.
+          </p>
+          <button className="btn btn-primary" onClick={() => setCurrentPage("documents")}>
+            <ArrowLeft size={16} />
+            <span>Go to Documents</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const doc = selectedDocument;
 
   const handleCopyText = () => {
+    if (!doc.extractedText) return;
     navigator.clipboard?.writeText(doc.extractedText);
     setCopiedText(true);
-    addToast("Extracted OCR text copied to clipboard!", "info");
+    addToast("Extracted document text copied to clipboard!", "info");
     setTimeout(() => setCopiedText(false), 2000);
   };
 
+  const handleDownload = () => {
+    const blob = new Blob([doc.extractedText || ""], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${doc.name}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    addToast(`Exported extracted text for "${doc.name}"`, "success");
+  };
+
   const handleAskAboutDoc = () => {
-    askAI(`What are the key details and entities in ${doc.name}?`, doc);
+    askAI(`Summarize this document and list key facts from ${doc.name}`, doc);
   };
 
   return (
@@ -116,8 +123,8 @@ export default function DocumentViewer() {
           </button>
           <button
             className="btn-icon"
-            onClick={() => addToast(`Downloaded ${doc.name}`, "success")}
-            title="Download document"
+            onClick={handleDownload}
+            title="Download extracted text"
           >
             <Download size={18} />
           </button>
@@ -132,103 +139,48 @@ export default function DocumentViewer() {
             className="document-canvas-wrapper"
             style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
           >
-            {/* Visual simulation of certificate/marksheet/document page */}
-            {doc.visualType === "certificate" || doc.name.includes("Certificate") ? (
-              <div className="canvas-certificate-sheet">
-                <div className="cert-border-outer">
-                  <div className="cert-border-inner">
-                    <div className="cert-seal-badge">★ OFFICIAL CREDENTIAL ★</div>
-                    <div className="cert-issuer">
-                      {doc.name.includes("Python") ? "STANFORD ONLINE / COURSERA" : "JAWAHARLAL NEHRU TECHNOLOGICAL UNIVERSITY"}
-                    </div>
-                    <div className="cert-headline">CERTIFICATE OF ACCOMPLISHMENT</div>
-                    <div className="cert-body-text">This is proudly presented to:</div>
-                    <div className="cert-recipient-name">ARUN KUMAR</div>
-                    <div className="cert-detail-paragraph">
-                      {doc.summary}
-                    </div>
-                    <div className="cert-credential-id">
-                      RECORD ID: AIPIRS-VERIFIED-{doc.id.toUpperCase()}-2026
-                    </div>
-                    <div className="cert-signatures-row">
-                      <div className="cert-sig-line">
-                        <div className="sig-handwriting">Dr. K. Radhakrishnan</div>
-                        <div className="sig-title">Dean / Academic Registrar</div>
-                      </div>
-                      <div className="cert-stamp-circle">
-                        <span>SEAL OF AUTHENTICITY</span>
-                      </div>
-                      <div className="cert-sig-line">
-                        <div className="sig-handwriting">Vikram Sengupta</div>
-                        <div className="sig-title">Director & Verification Lead</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : doc.name.includes("Passport") ? (
-              <div className="canvas-passport-sheet">
-                <div className="passport-header-bar">
-                  <span>REPUBLIC OF INDIA / RÉPUBLIQUE DE L'INDE</span>
-                  <span>PASSPORT</span>
-                </div>
-                <div className="passport-body">
-                  <div className="passport-photo-mock">
-                    <div className="passport-avatar-box">AK</div>
-                    <span className="photo-label">PHOTO</span>
-                  </div>
-                  <div className="passport-info-grid">
-                    <div>
-                      <label>TYPE / TYPE</label>
-                      <p>P</p>
-                    </div>
-                    <div>
-                      <label>COUNTRY CODE</label>
-                      <p>IND</p>
-                    </div>
-                    <div>
-                      <label>PASSPORT NO.</label>
-                      <p className="highlight-field">Z9182736</p>
-                    </div>
-                    <div>
-                      <label>SURNAME</label>
-                      <p>KUMAR</p>
-                    </div>
-                    <div>
-                      <label>GIVEN NAMES</label>
-                      <p>ARUN</p>
-                    </div>
-                    <div>
-                      <label>NATIONALITY</label>
-                      <p>INDIAN</p>
-                    </div>
-                    <div>
-                      <label>DATE OF BIRTH</label>
-                      <p>14/08/2003</p>
-                    </div>
-                    <div>
-                      <label>DATE OF EXPIRY</label>
-                      <p className="highlight-field">11/03/2031</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="passport-mrz">
-                  P&lt;INDKUMAR&lt;&lt;ARUN&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<br />
-                  Z9182736&lt;9IND0308144M3103118&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;02
-                </div>
-              </div>
-            ) : (
-              /* Standard Formatted Document / Report / Resume Canvas */
-              <div className="canvas-paper-sheet">
-                <div className="paper-header-strip">
-                  <div className="paper-doc-title-raw">{doc.name}</div>
+            {/* Real Extracted Document Pages Canvas */}
+            <div className="canvas-paper-sheet">
+              <div className="paper-header-strip">
+                <div className="paper-doc-title-raw">{doc.name}</div>
+                <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+                  <span className="grid-collection-pill">{doc.collection}</span>
                   <span className="paper-pages-tag">{doc.pages} Page{doc.pages > 1 ? "s" : ""}</span>
                 </div>
-                <div className="paper-text-preview">
-                  <pre>{doc.extractedText}</pre>
-                </div>
               </div>
-            )}
+
+              {/* Detected entities bar if any entities were recognized */}
+              {doc.detectedEntities && doc.detectedEntities.length > 0 && (
+                <div style={{ padding: "12px 18px", background: "rgba(37, 99, 235, 0.05)", borderBottom: "1px solid var(--border-color)", display: "flex", flexWrap: "wrap", gap: "10px", alignItems: "center" }}>
+                  <span style={{ fontSize: "0.75rem", fontWeight: "600", color: "var(--color-primary, #2563EB)", textTransform: "uppercase", letterSpacing: "0.5px" }}>Extracted Entities:</span>
+                  {doc.detectedEntities.map((ent, eIdx) => (
+                    <span key={eIdx} style={{ fontSize: "0.78rem", background: "var(--card-bg)", padding: "3px 8px", borderRadius: "6px", border: "1px solid var(--border-color)", color: "var(--text-primary)" }}>
+                      <strong>{ent.label}:</strong> {ent.value}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Render pages */}
+              <div className="paper-text-preview" style={{ padding: "20px" }}>
+                {doc.pagesText && doc.pagesText.length > 1 ? (
+                  doc.pagesText.map(p => (
+                    <div key={p.page} style={{ marginBottom: "24px", paddingBottom: "16px", borderBottom: "1px dashed var(--border-color)" }}>
+                      <div style={{ fontSize: "0.75rem", fontWeight: "700", color: "var(--text-muted)", marginBottom: "8px", textTransform: "uppercase" }}>
+                        — Page {p.page} —
+                      </div>
+                      <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.9rem", lineHeight: "1.6", color: "var(--text-primary)" }}>
+                        {p.text}
+                      </pre>
+                    </div>
+                  ))
+                ) : (
+                  <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: "0.9rem", lineHeight: "1.6", color: "var(--text-primary)" }}>
+                    {doc.extractedText}
+                  </pre>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
